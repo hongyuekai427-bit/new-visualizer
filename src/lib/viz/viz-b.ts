@@ -48,7 +48,7 @@ export class TunnelViz implements Visualizer {
     const idle = !f.playing && !f.live;
     const spinOn = q.reducedMotion ? 0 : 1;
 
-    const dz = f.dt * s.speed * (0.32 + f.bass * 1.15 + (idle ? 0.1 : 0));
+    const dz = idle ? 0 : f.dt * s.speed * (0.32 + f.bass * 1.15);
     const rings = this.rings;
     for (let i = 0; i < rings.length; i++) {
       const r = rings[i];
@@ -71,19 +71,17 @@ export class TunnelViz implements Visualizer {
       const alpha = Math.pow(p, 1.65) * 0.85;
       if (alpha < 0.02) continue;
       const dir = ring.seed > 0.5 ? 1 : -1;
-      const rot =
-        ring.seed * TAU +
-        f.t * (0.12 + fx.spin * 0.85) * dir * 0.35 * spinOn +
-        ring.z * 2.4 +
-        f.beatPulse * fx.pulse * 0.25 * dir;
-      const wobAmp = 0.1 + f.mid * 0.16;
+      // Smooth, purely time-based spin — beats modulate size/throat, never rotation,
+      // so rings never whip around while music plays.
+      const rot = ring.seed * TAU + f.t * (0.1 + fx.spin * 0.42) * dir * 0.35 * spinOn + ring.z * 2.4;
+      const wobAmp = 0.08 + f.mid * 0.12;
       g.strokeStyle = pal.color(0.15 + 0.85 * p, alpha);
       g.lineWidth = 1 + p * 4.6;
       g.beginPath();
       for (let k = 0; k <= m; k++) {
         const ki = k % m;
         const ang = rot + (ki / m) * TAU;
-        const wobble = 1 + wobAmp * Math.sin(ring.seed * 9.2 + ki * 2.3 + f.t * (0.7 + f.mid * 0.8));
+        const wobble = 1 + wobAmp * Math.sin(ring.seed * 9.2 + ki * 2.3 + f.t * 0.9);
         const fmod = 1 + f.bars[(ki * 7 + Math.floor(ring.seed * 89)) % f.barCount] * 0.26 * p;
         const r = R * wobble * fmod;
         const x = cx + Math.cos(ang) * r;
@@ -164,14 +162,15 @@ export class ParticlesViz implements Visualizer {
     const t = f.t;
     const idle = !f.playing && !f.live;
     const target = s.particles * q.budget;
-    const energy = idle ? 0.14 : Math.min(1.5, 0.22 + f.level * 2.6 + f.bass * 0.7);
+    // Silence emits nothing — existing particles simply decay away.
+    const energy = idle ? 0 : Math.min(1.5, 0.22 + f.level * 2.6 + f.bass * 0.7);
     const desired = target * Math.min(1, energy);
 
-    this.emitAcc += Math.max(0, (desired - this.alive) * 2.4 + (idle ? target * 0.06 : 0)) * dt;
+    this.emitAcc += Math.max(0, (desired - this.alive) * 2.4) * dt;
     let toSpawn = Math.min(70, Math.floor(this.emitAcc));
     this.emitAcc -= toSpawn;
-    if (f.beat && !idle) toSpawn = Math.min(P_CAP - this.alive, toSpawn + Math.floor(26 * (0.4 + f.bass)));
-    while (toSpawn-- > 0) this.spawn(f, f.beat && !idle);
+    if (f.beat) toSpawn = Math.min(P_CAP - this.alive, toSpawn + Math.floor(26 * (0.4 + f.bass)));
+    while (toSpawn-- > 0) this.spawn(f, f.beat);
 
     const damp = Math.exp(-dt * 0.55);
     const curl = 24 * (0.4 + f.high);

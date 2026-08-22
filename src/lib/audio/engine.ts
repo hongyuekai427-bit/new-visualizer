@@ -63,6 +63,14 @@ export class AudioEngine {
   private micStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
   private screenEndedHandler: (() => void) | null = null;
+  /** Live-source graph nodes, kept so stopLive() can fully detach them. */
+  private liveNodes: { src: MediaStreamAudioSourceNode; gate: GainNode } | null = null;
+  /**
+   * Monotonic token guarding async source activation. Starting a capture awaits a
+   * permission prompt; if the user switches away mid-await, the stale continuation
+   * must not re-activate the capture. Every source switch bumps the token.
+   */
+  private sourceToken = 0;
 
   private fftSize = 2048;
   private smoothingUser = 0.8;
@@ -208,7 +216,7 @@ export class AudioEngine {
   }
 
   configureBars(count: number, log: boolean, minHz: number, maxHz: number): void {
-    this.barCount = Math.round(Math.min(192, Math.max(16, count)));
+    this.barCount = Math.round(Math.min(2048, Math.max(16, count)));
     this.barLog = log;
     this.minHz = minHz;
     this.maxHz = maxHz;
@@ -368,6 +376,8 @@ export class AudioEngine {
 
   select(index: number, autoplay = false): void {
     if (index < 0 || index >= this.tracks.length) return;
+    // Selecting a track is a source switch: cancel any capture still negotiating.
+    this.sourceToken++;
     this.backToPlaylist();
     try {
       this.ensureCtx();
@@ -526,19 +536,23 @@ export class AudioEngine {
   /* ------------------------------------------------ live sources */
 
   async setSource(kind: SourceKind): Promise<void> {
+    // Any switch invalidates a capture that is still being negotiated.
+    const token = ++this.sourceToken;
     if (kind === "playlist") {
       this.backToPlaylist();
       return;
     }
     const ctx = this.ensureCtx();
     if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
+    if (token !== this.sourceToken) return;
     this.el.pause();
 
     if (kind === "mic") {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone capture is not supported in this browser.");
       this.stopLive();
+      let stream: MediaStream;
       try {
-        this.micStream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
       } catch (e) {
@@ -548,10 +562,18 @@ export class AudioEngine {
         if (err.name === "NotFoundError") throw new Error("No microphone was found on this device.");
         throw new Error(`Microphone unavailable: ${err.message || err.name}`);
       }
-      const src = ctx.createMediaStreamSource(this.micStream);
-      const g = ctx.createGain();
-      src.connect(g);
-      g.connect(this.inputBus!);
+      if (token !== this.sourceToken) {
+        // The user switched away while the permission prompt was open — don't hijack.
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      this.micStream = stream;
+      const src = ctx.createMediaStreamSource(stream);
+      const gate = ctx.createGain();
+      src.connect(gate);
+      gate.connect(this.inputBus!);
+      this.liveNodes = { src, gate };
+      // Analysis-only: live input feeds the analyser but never the speakers.
       if (this.outGain) this.outGain.gain.value = 0;
       this.source = "mic";
       this.emit("change");
@@ -562,16 +584,28 @@ export class AudioEngine {
       if (!navigator.mediaDevices?.getDisplayMedia)
         throw new Error("Screen/tab audio capture is not supported in this browser (try Chrome or Edge).");
       this.stopLive();
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      } catch (e) {
+        const err = e as DOMException;
+        if (err.name === "NotAllowedError") throw new Error("Screen capture was cancelled or denied.");
+        throw new Error(`Screen capture failed: ${err.message || err.name}`);
+      }
+      if (token !== this.sourceToken) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       if (stream.getAudioTracks().length === 0) {
         stream.getTracks().forEach((t) => t.stop());
         throw new Error('No audio was shared. Pick a browser tab and enable "Also share tab audio".');
       }
       this.screenStream = stream;
       const src = ctx.createMediaStreamSource(stream);
-      const g = ctx.createGain();
-      src.connect(g);
-      g.connect(this.inputBus!);
+      const gate = ctx.createGain();
+      src.connect(gate);
+      gate.connect(this.inputBus!);
+      this.liveNodes = { src, gate };
       if (this.outGain) this.outGain.gain.value = 0;
       this.screenEndedHandler = () => {
         if (this.source === "screen") this.backToPlaylist();
@@ -594,6 +628,15 @@ export class AudioEngine {
       this.screenStream.getTracks().forEach((t) => t.stop());
       this.screenStream = null;
       this.screenEndedHandler = null;
+    }
+    if (this.liveNodes) {
+      try {
+        this.liveNodes.src.disconnect();
+        this.liveNodes.gate.disconnect();
+      } catch {
+        /* already detached */
+      }
+      this.liveNodes = null;
     }
   }
 

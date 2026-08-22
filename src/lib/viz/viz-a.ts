@@ -2,9 +2,6 @@ import type { AudioFrame } from "../audio/engine";
 import { TAU } from "./types";
 import type { PaletteSampler, QualityInfo, Settings, Visualizer } from "./types";
 
-const idleWave = (f: AudioFrame, i: number): number =>
-  0.022 + 0.018 * (0.5 + 0.5 * Math.sin(f.t * 1.35 + i * 0.43));
-
 /* ================================================================
    SPECTRUM — log-mapped vertical bars, peaks, mirror, reflection
    ================================================================ */
@@ -25,26 +22,28 @@ export class SpectrumViz implements Visualizer {
     const h = this.h;
     const n = f.barCount;
     const fx = s.fx;
-    const idle = !f.playing && !f.live;
     const padX = Math.max(10, w * 0.022);
     const usable = w - padX * 2;
-    const gap = Math.max(1, (usable / n) * 0.24);
-    const bw = usable / n - gap;
+    const step = usable / n;
+    const dense = step <= 3;
+    const gap = step > 4 ? Math.max(1, step * 0.24) : step * 0.2;
+    const bw = Math.max(0.6, step - gap);
     const mirror = s.mirror;
-    const baseY = mirror ? h * 0.5 : h * 0.9;
-    const maxH = mirror ? h * 0.4 : h * 0.78;
+    // Explicit headroom so full-scale bars never touch the top edge.
+    const headroom = Math.max(18, h * 0.07);
+    const baseY = mirror ? h * 0.5 : h * 0.92;
+    const maxH = Math.max(40, mirror ? h * 0.5 - headroom : baseY - headroom);
     const boost = 1 + f.beatPulse * fx.pulse * 0.12;
 
     /* horizontal bars — rows grow from the left (or center when mirrored) */
     if (s.barStyle === "rows") {
       const padY = Math.max(10, h * 0.045);
       const usableH = h - padY * 2;
-      const gapY = Math.max(1, (usableH / n) * 0.24);
-      const rh = usableH / n - gapY;
+      const gapY = Math.min(Math.max(0.5, (usableH / n) * 0.24), 2);
+      const rh = Math.max(0.75, usableH / n - gapY);
       const maxW = usable;
       for (let i = 0; i < n; i++) {
         let v = f.bars[i];
-        if (idle) v = Math.max(v, idleWave(f, i));
         v = Math.min(1, v * boost);
         const bwid = Math.max(2, v * maxW);
         const y = padY + i * (rh + gapY);
@@ -70,14 +69,13 @@ export class SpectrumViz implements Visualizer {
     for (let i = 0; i < stops.length; i++) grad.addColorStop(i / (stops.length - 1), stops[i]);
 
     const bars = new Path2D();
-    const rounded = s.barStyle === "rounded" && typeof bars.roundRect === "function";
+    const rounded = s.barStyle === "rounded" && !dense && typeof bars.roundRect === "function";
 
     for (let i = 0; i < n; i++) {
       let v = f.bars[i];
-      if (idle) v = Math.max(v, idleWave(f, i));
       v = Math.min(1, v * boost);
-      const bh = Math.max(2, v * maxH);
-      const x = padX + i * (bw + gap);
+      const bh = Math.max(dense ? 1 : 2, v * maxH);
+      const x = padX + i * step;
 
       if (s.barStyle === "line") {
         g.globalAlpha = 0.1 + 0.22 * v;
@@ -115,11 +113,11 @@ export class SpectrumViz implements Visualizer {
       g.fillStyle = grad;
       g.fill(bars);
 
-      if (s.peaks) {
+      if (s.peaks && !dense) {
         g.fillStyle = "rgba(255,255,255,0.82)";
         for (let i = 0; i < n; i++) {
           const p = Math.min(1, f.peaks[i] * boost);
-          const x = padX + i * (bw + gap);
+          const x = padX + i * step;
           if (mirror) {
             const off = (p * maxH) / 2;
             g.fillRect(x, baseY - off - 1.5, bw, 3);
@@ -129,11 +127,11 @@ export class SpectrumViz implements Visualizer {
           }
         }
       }
-    } else if (s.peaks) {
+    } else if (s.peaks && !dense) {
       g.fillStyle = "rgba(255,255,255,0.7)";
       for (let i = 0; i < n; i++) {
         const p = Math.min(1, f.peaks[i]);
-        const x = padX + i * (bw + gap);
+        const x = padX + i * step;
         g.fillRect(x, baseY - p * maxH - 2, bw, 2);
       }
     }
@@ -170,7 +168,6 @@ export class RadialViz implements Visualizer {
     const minD = Math.min(w, h);
     const n = f.barCount;
     const fx = s.fx;
-    const idle = !f.playing && !f.live;
     const R = minD * s.radius * (1 + f.bass * fx.pulse * 0.12);
     const spinOn = q.reducedMotion ? 0 : 1;
     const rot = f.t * (0.05 + fx.spin * 0.45) * spinOn + f.beatPulse * fx.pulse * 0.1;
@@ -183,7 +180,6 @@ export class RadialViz implements Visualizer {
     for (let i = 0; i < n; i++) {
       const si = s.symmetry ? (i < n / 2 ? i : n - 1 - i) : i;
       let v = f.bars[si];
-      if (idle) v = Math.max(v, idleWave(f, i) * 1.4);
       v = Math.min(1, v * (1 + f.beatPulse * fx.pulse * 0.18));
       const len = Math.max(lw * 0.6, v * maxLen);
       const a = rot + (i / n) * TAU;
@@ -205,7 +201,7 @@ export class RadialViz implements Visualizer {
     }
 
     // reactive core
-    const coreR = R * 0.66 * (1 + f.bass * 0.5 * fx.pulse + (idle ? Math.sin(f.t * 0.9) * 0.04 : 0));
+    const coreR = R * 0.66 * (1 + f.bass * 0.5 * fx.pulse);
     const core = g.createRadialGradient(cx, cy, 0, cx, cy, coreR);
     core.addColorStop(0, pal.color(0.72, 0.95));
     core.addColorStop(0.55, pal.color(0.45, 0.5));
@@ -264,19 +260,14 @@ export class ScopeViz implements Visualizer {
     const fx = s.fx;
     const midY = h / 2;
     const amp = h * 0.3 * (1 + f.bass * fx.pulse * 0.65);
-    const idle = !f.playing && !f.live;
     const points = Math.min(Math.max(160, Math.floor(w / 1.5)), 860);
     const wave = f.wave;
     const wLen = wave.length;
 
     const path = new Path2D();
     for (let i = 0; i < points; i++) {
-      let v: number;
-      if (idle) {
-        v = Math.sin((i / points) * 9 + f.t * 1.8) * 0.035 + Math.sin((i / points) * 23 - f.t * 1.1) * 0.015;
-      } else {
-        v = (wave[Math.floor((i / (points - 1)) * (wLen - 1))] - 128) / 128;
-      }
+      // Real time-domain data only — silence renders as a flat line.
+      const v = (wave[Math.floor((i / (points - 1)) * (wLen - 1))] - 128) / 128;
       const x = (i / (points - 1)) * w;
       const y = midY + v * amp;
       if (i === 0) path.moveTo(x, y);

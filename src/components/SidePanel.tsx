@@ -260,7 +260,7 @@ function StyleTab() {
       <div className="space-y-2.5">
         {viz === "spectrum" && (
           <>
-            <SliderRow label="Bars" value={s.barCount} min={16} max={192} step={4} onChange={(v) => actions.patchSettings({ barCount: v })} />
+            <SliderRow label="Bars" value={s.barCount} min={16} max={2048} step={4} onChange={(v) => actions.patchSettings({ barCount: v })} />
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-medium text-mute">Bar style</span>
               <Seg<BarStyle>
@@ -282,7 +282,7 @@ function StyleTab() {
         )}
         {viz === "radial" && (
           <>
-            <SliderRow label="Rays" value={s.barCount} min={16} max={192} step={4} onChange={(v) => actions.patchSettings({ barCount: v })} />
+            <SliderRow label="Rays" value={s.barCount} min={16} max={2048} step={4} onChange={(v) => actions.patchSettings({ barCount: v })} />
             <SliderRow label="Core radius" value={s.radius} min={0.1} max={0.45} step={0.01} onChange={(v) => actions.patchSettings({ radius: v })} format={(v) => `${Math.round(v * 100)}%`} />
             <ToggleRow label="Symmetry" checked={s.symmetry} onChange={(v) => actions.patchSettings({ symmetry: v })} />
           </>

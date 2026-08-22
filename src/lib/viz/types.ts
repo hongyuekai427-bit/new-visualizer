@@ -40,6 +40,8 @@ export interface Settings {
   palette: string;
   fx: FxSettings;
   quality: QualityMode;
+  /** Display brightness applied to the whole visualization surface (1 = neutral). */
+  brightness: number;
 }
 
 export const FFT_SIZES = [1024, 2048, 4096, 8192] as const;
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
   palette: "solar",
   fx: { trails: 0.3, glow: 0.55, cycle: 0, pulse: 0.65, flash: 0.2, spin: 0.25, background: true },
   quality: "auto",
+  brightness: 1,
 };
 
 export interface PaletteDef {
@@ -198,7 +201,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     minHz: num(r.minHz, 15, 500, d.minHz),
     maxHz: num(r.maxHz, 4000, 20000, d.maxHz),
     logFreq: pickBool(r.logFreq, d.logFreq),
-    barCount: Math.round(num(r.barCount, 16, 192, d.barCount)),
+    barCount: Math.round(num(r.barCount, 16, 2048, d.barCount)),
     barStyle: pickStr(r.barStyle, BAR_STYLES, d.barStyle),
     mirror: pickBool(r.mirror, d.mirror),
     peaks: pickBool(r.peaks, d.peaks),
@@ -216,6 +219,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     palette: pickStr(r.palette, PALETTES.map((p) => p.id), d.palette),
     fx: sanitizeFx(fxRaw),
     quality: pickStr(r.quality, QUALITY_MODES, d.quality),
+    brightness: num(r.brightness, 0.4, 1.6, d.brightness),
   };
 }
 

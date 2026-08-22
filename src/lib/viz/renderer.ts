@@ -62,6 +62,9 @@ export class Renderer {
   private fastTime = 0;
   private lastTierAt = 0;
   private vignette: HTMLCanvasElement | null = null;
+  /** Downscaled snapshot buffer used for the cheap two-tap bloom pass. */
+  private bloomC: HTMLCanvasElement | null = null;
+  private bloomG: CanvasRenderingContext2D | null = null;
   private flashEnergy = 0;
   private fpsFrames = 0;
   private fpsAt = 0;
@@ -99,6 +102,7 @@ export class Renderer {
 
     engine.configureAnalysis(settings.fftSize, settings.smoothing);
     engine.configureBars(settings.barCount, settings.logFreq, settings.minHz, settings.maxHz);
+    this.applyBrightness();
 
     if (typeof ResizeObserver !== "undefined" && canvas.parentElement) {
       this.ro = new ResizeObserver(() => this.resize());
@@ -145,6 +149,7 @@ export class Renderer {
       this.engine.configureBars(s.barCount, s.logFreq, s.minHz, s.maxHz);
     }
     this.viz.configure(s);
+    if (s.brightness !== prev.brightness) this.applyBrightness();
     if (s.quality !== prev.quality) {
       const [lo, hi] = MODE_RANGE[s.quality];
       this.tier = Math.min(hi, Math.max(lo, this.tier));
@@ -177,6 +182,8 @@ export class Renderer {
       this.motionQuery.removeEventListener?.("change", this.onMotionChange);
     }
     this.viz.dispose();
+    this.bloomC = null;
+    this.bloomG = null;
     this.g = null;
   }
 
@@ -197,6 +204,17 @@ export class Renderer {
     this.ch = h;
     this.viz.resize(w, h);
     this.buildVignette(w, h);
+    // Bloom buffer at ~1/5 resolution: downscale acts as a blur kernel, and the
+    // smoothed upscale back produces a wide, soft halo at a fraction of the cost
+    // of a real Gaussian pass.
+    if (!this.bloomC) {
+      this.bloomC = document.createElement("canvas");
+      this.bloomG = this.bloomC.getContext("2d");
+    }
+    if (this.bloomC) {
+      this.bloomC.width = Math.max(2, Math.round(this.canvas.width / 5));
+      this.bloomC.height = Math.max(2, Math.round(this.canvas.height / 5));
+    }
   }
 
   private buildVignette(w: number, h: number): void {
@@ -211,6 +229,46 @@ export class Renderer {
     g.fillStyle = grad;
     g.fillRect(0, 0, c.width, c.height);
     this.vignette = c;
+  }
+
+  /**
+   * Cheap real bloom: the canvas is snapshotted into a ~1/5-resolution buffer
+   * (the downscale is the blur kernel), then re-composited additively with
+   * smoothing so every bright shape gets a wide, soft halo. Two drawImage calls
+   * per frame regardless of scene complexity.
+   */
+  private renderBloom(): void {
+    const g = this.g;
+    const bc = this.bloomC;
+    const bg = this.bloomG;
+    const c = this.canvas;
+    if (!g || !bc || !bg) return;
+    const glow = this.settings.fx.glow;
+    if (glow <= 0.05) return;
+
+    bg.clearRect(0, 0, bc.width, bc.height);
+    bg.imageSmoothingEnabled = true;
+    bg.drawImage(c, 0, 0, bc.width, bc.height);
+
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = "lighter";
+    g.imageSmoothingEnabled = true;
+    g.globalAlpha = Math.min(0.85, glow * 0.75);
+    g.drawImage(bc, 0, 0, bc.width, bc.height, 0, 0, c.width, c.height);
+    if (glow > 0.5) {
+      // A second, slightly enlarged pass widens the halo for strong glow.
+      g.globalAlpha = Math.min(0.5, (glow - 0.5) * 0.8);
+      const px = c.width * 0.012;
+      const py = c.height * 0.012;
+      g.drawImage(bc, 0, 0, bc.width, bc.height, -px, -py, c.width + px * 2, c.height + py * 2);
+    }
+    g.restore();
+  }
+
+  private applyBrightness(): void {
+    const b = this.settings.brightness;
+    this.canvas.style.filter = Math.abs(b - 1) < 0.011 ? "" : `brightness(${b.toFixed(2)})`;
   }
 
   private govern(dt: number, now: number): void {
@@ -288,7 +346,7 @@ export class Renderer {
       g.translate(-w / 2, -h / 2);
     }
 
-    // ---- visualizer body (additive when glow is on)
+    // ---- visualizer body (additive when glow is on, for bright overlapping cores)
     if (fx.glow > 0.05) g.globalCompositeOperation = "lighter";
     const qi: QualityInfo = {
       scale: TIERS[this.tier].scale,
@@ -298,6 +356,9 @@ export class Renderer {
     this.viz.render(g, f, this.pal, this.settings, qi);
     g.globalCompositeOperation = "source-over";
     if (pulsing) g.restore();
+
+    // ---- bloom halo (downscale→upscale additive pass)
+    this.renderBloom();
 
     // ---- beat flash (intensity-capped)
     if (f.beat && fx.flash > 0) this.flashEnergy = Math.min(0.09, fx.flash * 0.09);
