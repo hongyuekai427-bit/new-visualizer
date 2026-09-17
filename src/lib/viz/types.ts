@@ -57,8 +57,8 @@ export const BAR_STYLES = ["rounded", "square", "line", "rows"] as const;
 export const DEFAULT_SETTINGS: Settings = {
   fftSize: 2048,
   smoothing: 0.78,
-  minHz: 30,
-  maxHz: 16000,
+  minHz: 20,
+  maxHz: 20000,
   logFreq: true,
   barCount: 96,
   barStyle: "rounded",
@@ -205,7 +205,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   return {
     fftSize: Number(fft),
     smoothing: num(r.smoothing, 0, 0.97, d.smoothing),
-    minHz: num(r.minHz, 15, 500, d.minHz),
+    minHz: num(r.minHz, 20, 500, d.minHz),
     maxHz: num(r.maxHz, 4000, 20000, d.maxHz),
     logFreq: pickBool(r.logFreq, d.logFreq),
     barCount: Math.round(num(r.barCount, 16, 2048, d.barCount)),

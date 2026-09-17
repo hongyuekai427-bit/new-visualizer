@@ -232,15 +232,16 @@ export class AudioEngine {
     if (!this.ctx || !this.analyser) return;
     const binHz = this.ctx.sampleRate / this.analyser.fftSize;
     const bins = this.analyser.frequencyBinCount;
-    const f0 = Math.max(15, this.minHz);
-    const f1 = Math.min(this.maxHz, binHz * (bins - 1));
+    const f0 = this.minHz;
+    const f1 = this.maxHz;
     const ranges = new Uint32Array(this.barCount * 2);
     for (let i = 0; i < this.barCount; i++) {
-      const a = i / this.barCount;
-      const b = (i + 1) / this.barCount;
+      const a = i / (this.barCount - 1);
+      const b = (i + 1) / (this.barCount - 1);
       let fa: number;
       let fb: number;
       if (this.barLog) {
+        // f(i) = f_min * (f_max / f_min) ^ (i / (N - 1))
         fa = f0 * Math.pow(f1 / f0, a);
         fb = f0 * Math.pow(f1 / f0, b);
       } else {
