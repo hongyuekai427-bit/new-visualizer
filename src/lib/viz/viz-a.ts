@@ -68,8 +68,11 @@ export class SpectrumViz implements Visualizer {
     const stops = pal.gradientStops(9);
     for (let i = 0; i < stops.length; i++) grad.addColorStop(i / (stops.length - 1), stops[i]);
 
-    const bars = new Path2D();
-    const rounded = s.barStyle === "rounded" && !dense && typeof bars.roundRect === "function";
+    // Performance optimization: Path2D with thousands of shapes is expensive.
+    // Switch to direct fillRect rendering when bar count exceeds threshold.
+    const usePath2D = n <= 384 && s.barStyle !== "line";
+    const bars = usePath2D ? new Path2D() : null;
+    const rounded = s.barStyle === "rounded" && !dense && usePath2D && typeof bars?.roundRect === "function";
 
     for (let i = 0; i < n; i++) {
       let v = f.bars[i];
@@ -86,19 +89,31 @@ export class SpectrumViz implements Visualizer {
         continue;
       }
 
+      // High bar count: use direct fillRect for performance
+      if (!usePath2D) {
+        g.fillStyle = grad;
+        if (mirror) {
+          g.fillRect(x, baseY - bh / 2, bw, bh);
+        } else {
+          g.fillRect(x, baseY - bh, bw, bh);
+        }
+        continue;
+      }
+
+      // Low bar count: build Path2D for rounded corners
       if (mirror) {
         const y = baseY - bh / 2;
         const r = rounded ? Math.min(bw / 2, 4) : 0;
-        if (rounded) bars.roundRect(x, y, bw, bh, r);
-        else bars.rect(x, y, bw, bh);
+        if (rounded) bars!.roundRect(x, y, bw, bh, r);
+        else bars!.rect(x, y, bw, bh);
       } else {
         const r = rounded ? Math.min(bw / 2, bh / 2, 5) : 0;
-        if (rounded) bars.roundRect(x, baseY - bh, bw, bh, r);
-        else bars.rect(x, baseY - bh, bw, bh);
+        if (rounded) bars!.roundRect(x, baseY - bh, bw, bh, r);
+        else bars!.rect(x, baseY - bh, bw, bh);
       }
     }
 
-    if (s.barStyle !== "line") {
+    if (usePath2D && bars) {
       // soft reflection underlay (fake bloom, near-free)
       if (!mirror && fx.glow > 0.08) {
         g.save();
@@ -125,6 +140,20 @@ export class SpectrumViz implements Visualizer {
           } else {
             g.fillRect(x, baseY - p * maxH - 4, bw, 3);
           }
+        }
+      }
+    } else if (s.peaks && !dense && s.barStyle !== "line") {
+      // Draw peaks for high bar count (direct rendering mode)
+      g.fillStyle = "rgba(255,255,255,0.82)";
+      for (let i = 0; i < n; i++) {
+        const p = Math.min(1, f.peaks[i] * boost);
+        const x = padX + i * step;
+        if (mirror) {
+          const off = (p * maxH) / 2;
+          g.fillRect(x, baseY - off - 1.5, bw, 3);
+          g.fillRect(x, baseY + off - 1.5, bw, 3);
+        } else {
+          g.fillRect(x, baseY - p * maxH - 4, bw, 3);
         }
       }
     } else if (s.peaks && !dense) {
