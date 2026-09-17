@@ -278,6 +278,15 @@ function StyleTab() {
             </div>
             <ToggleRow label="Mirrored" checked={s.mirror} onChange={(v) => actions.patchSettings({ mirror: v })} />
             <ToggleRow label="Peak indicators" checked={s.peaks} onChange={(v) => actions.patchSettings({ peaks: v })} />
+            <SliderRow
+              label="dB threshold"
+              value={s.spectrumThreshold}
+              min={0}
+              max={60}
+              step={1}
+              onChange={(v) => actions.patchSettings({ spectrumThreshold: v })}
+              format={(v) => (v === 0 ? "Off" : `-${v} dB`)}
+            />
           </>
         )}
         {viz === "radial" && (
