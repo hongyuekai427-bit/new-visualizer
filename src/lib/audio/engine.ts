@@ -235,28 +235,19 @@ export class AudioEngine {
     const f0 = this.minHz;
     const f1 = this.maxHz;
     const ranges = new Uint32Array(this.barCount * 2);
-    
     for (let i = 0; i < this.barCount; i++) {
-      let centerFreq: number;
-      let bandwidth: number;
-      
+      const a = i / (this.barCount - 1);
+      const b = (i + 1) / (this.barCount - 1);
+      let fa: number;
+      let fb: number;
       if (this.barLog) {
         // f(i) = f_min * (f_max / f_min) ^ (i / (N - 1))
-        // Each bar is a narrow band around its center frequency
-        centerFreq = f0 * Math.pow(f1 / f0, i / (this.barCount - 1));
-        // Bandwidth proportional to frequency (constant Q factor)
-        // Using Q = 4 means each bar covers about 25% of its center frequency
-        bandwidth = centerFreq / 4;
+        fa = f0 * Math.pow(f1 / f0, a);
+        fb = f0 * Math.pow(f1 / f0, b);
       } else {
-        // Linear spacing: equal bandwidth for each bar
-        const step = (f1 - f0) / (this.barCount - 1);
-        centerFreq = f0 + step * i;
-        bandwidth = step;
+        fa = f0 + (f1 - f0) * a;
+        fb = f0 + (f1 - f0) * b;
       }
-      
-      const fa = centerFreq - bandwidth / 2;
-      const fb = centerFreq + bandwidth / 2;
-      
       const b0 = Math.max(0, Math.min(bins - 1, Math.floor(fa / binHz)));
       const b1 = Math.max(b0 + 1, Math.min(bins, Math.ceil(fb / binHz)));
       ranges[i * 2] = b0;
