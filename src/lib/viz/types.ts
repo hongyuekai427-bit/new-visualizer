@@ -48,6 +48,11 @@ export interface Settings {
    * 10^(-dB/20) — e.g. 20 dB only shows bars within 20 dB of peak.
    */
   spectrumThreshold: number;
+  /**
+   * Visualizer gain in dB. 0 = neutral, positive = boost, negative = reduce.
+   * Applied to visualization only, does not affect audio playback.
+   */
+  visualizerGain: number;
 }
 
 export const FFT_SIZES = [1024, 2048, 4096, 8192] as const;
@@ -80,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: "auto",
   brightness: 1,
   spectrumThreshold: 0,
+  visualizerGain: 0,
 };
 
 export interface PaletteDef {
@@ -228,6 +234,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     quality: pickStr(r.quality, QUALITY_MODES, d.quality),
     brightness: num(r.brightness, 0.4, 1.6, d.brightness),
     spectrumThreshold: num(r.spectrumThreshold, 0, 60, d.spectrumThreshold),
+    visualizerGain: num(r.visualizerGain, -10, 10, d.visualizerGain),
   };
 }
 

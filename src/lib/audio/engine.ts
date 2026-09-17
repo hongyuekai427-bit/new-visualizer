@@ -74,6 +74,7 @@ export class AudioEngine {
 
   private fftSize = 2048;
   private smoothingUser = 0.8;
+  private visualizerGainDb = 0;
 
   private freq: Uint8Array<ArrayBuffer> = new Uint8Array(1024);
   private waveArr: Uint8Array<ArrayBuffer> = new Uint8Array(2048);
@@ -226,6 +227,10 @@ export class AudioEngine {
     this.frame.peaks = new Float32Array(this.barCount);
     this.frame.barCount = this.barCount;
     this.computeBarRanges();
+  }
+
+  setVisualizerGain(db: number): void {
+    this.visualizerGainDb = Math.max(-10, Math.min(10, db));
   }
 
   private computeBarRanges(): void {
@@ -734,6 +739,7 @@ export class AudioEngine {
       const peaks = f.peaks;
       const ranges = this.barRanges;
       const n = this.barCount;
+      const gainMultiplier = Math.pow(10, this.visualizerGainDb / 20);
       for (let i = 0; i < n; i++) {
         const a = ranges[i * 2];
         const b = ranges[i * 2 + 1];
@@ -741,7 +747,7 @@ export class AudioEngine {
         for (let j = a; j < b; j++) {
           if (smooth[j] > m) m = smooth[j];
         }
-        const v = Math.min(1, m * 1.12);
+        const v = Math.min(1, m * 1.12 * gainMultiplier);
         bars[i] = v;
         const decayed = peaks[i] - dt * (0.2 + peaks[i] * 0.55);
         peaks[i] = decayed > v ? decayed : v;
