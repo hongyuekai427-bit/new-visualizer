@@ -235,24 +235,24 @@ export class AudioEngine {
     const f0 = this.minHz;
     const f1 = this.maxHz;
     const ranges = new Uint32Array(this.barCount * 2);
+    
     for (let i = 0; i < this.barCount; i++) {
+      const a = i / (this.barCount - 1);
+      const b = (i + 1) / (this.barCount - 1);
       let fa: number;
       let fb: number;
+      
       if (this.barLog) {
         // f(i) = f_min * (f_max / f_min) ^ (i / (N - 1))
-        // Each bar is a single frequency point (narrow band)
-        const centerFreq = f0 * Math.pow(f1 / f0, i / (this.barCount - 1));
-        // Use just 1-2 FFT bins around the center frequency
-        const centerBin = Math.round(centerFreq / binHz);
-        fa = centerFreq - binHz * 0.5;
-        fb = centerFreq + binHz * 0.5;
+        // Apply logarithmic mapping to both frequency and FFT bins
+        fa = f0 * Math.pow(f1 / f0, a);
+        fb = f0 * Math.pow(f1 / f0, b);
       } else {
-        // Linear: each bar spans a range
-        const a = i / (this.barCount - 1);
-        const b = (i + 1) / (this.barCount - 1);
         fa = f0 + (f1 - f0) * a;
         fb = f0 + (f1 - f0) * b;
       }
+      
+      // Map frequency to FFT bin index
       const b0 = Math.max(0, Math.min(bins - 1, Math.floor(fa / binHz)));
       const b1 = Math.max(b0 + 1, Math.min(bins, Math.ceil(fb / binHz)));
       ranges[i * 2] = b0;
