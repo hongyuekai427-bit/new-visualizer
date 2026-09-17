@@ -102,6 +102,7 @@ export class Renderer {
 
     engine.configureAnalysis(settings.fftSize, settings.smoothing);
     engine.configureBars(settings.barCount, settings.logFreq, settings.minHz, settings.maxHz);
+    engine.setVisualizerGain(settings.visualizerGain);
     this.applyBrightness();
 
     if (typeof ResizeObserver !== "undefined" && canvas.parentElement) {
@@ -147,6 +148,9 @@ export class Renderer {
       s.maxHz !== prev.maxHz
     ) {
       this.engine.configureBars(s.barCount, s.logFreq, s.minHz, s.maxHz);
+    }
+    if (s.visualizerGain !== prev.visualizerGain) {
+      this.engine.setVisualizerGain(s.visualizerGain);
     }
     this.viz.configure(s);
     if (s.brightness !== prev.brightness) this.applyBrightness();
