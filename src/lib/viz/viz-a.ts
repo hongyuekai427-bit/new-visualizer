@@ -111,9 +111,33 @@ export class SpectrumViz implements Visualizer {
       if (s.barStyle === "line") {
         g.globalAlpha = 0.1 + 0.22 * v;
         g.fillStyle = pal.color(i / (n - 1), 1);
-        g.fillRect(x, baseY - maxH, bw, maxH * (mirror ? 2 : 1));
+        if (thresholdNorm > 0 && v >= thresholdNorm) {
+          // Background bar from threshold line to full height
+          if (mirror) {
+            g.fillRect(x, baseY - maxH / 2, bw, maxH / 2 - thresholdHeight / 2);
+            g.fillRect(x, baseY + thresholdHeight / 2, bw, maxH / 2 - thresholdHeight / 2);
+          } else {
+            g.fillRect(x, baseY - maxH, bw, maxH - thresholdHeight);
+          }
+        } else {
+          g.fillRect(x, baseY - maxH, bw, maxH * (mirror ? 2 : 1));
+        }
         g.globalAlpha = 0.55 + 0.45 * v;
-        g.fillRect(x, mirror ? baseY - bh / 2 : baseY - bh, bw, bh);
+        if (thresholdNorm > 0 && v >= thresholdNorm) {
+          // Amplitude bar from threshold line to actual height
+          if (mirror) {
+            const startY = baseY - thresholdHeight / 2;
+            const endY = baseY - bh / 2;
+            g.fillRect(x, endY, bw, startY - endY);
+            g.fillRect(x, baseY + thresholdHeight / 2, bw, startY - endY);
+          } else {
+            const startY = baseY - thresholdHeight;
+            const endY = baseY - bh;
+            g.fillRect(x, endY, bw, startY - endY);
+          }
+        } else {
+          g.fillRect(x, mirror ? baseY - bh / 2 : baseY - bh, bw, bh);
+        }
         continue;
       }
 
