@@ -336,7 +336,7 @@ function StyleTab() {
           />
         </div>
         <SliderRow label="Smoothing" value={s.smoothing} min={0} max={0.97} step={0.01} onChange={(v) => actions.patchSettings({ smoothing: v })} format={(v) => `${Math.round(v * 100)}%`} />
-        <SliderRow label="Low cut" value={s.minHz} min={15} max={500} step={5} onChange={(v) => actions.patchSettings({ minHz: v })} format={(v) => `${v} Hz`} />
+        <SliderRow label="Low cut" value={s.minHz} min={20} max={500} step={5} onChange={(v) => actions.patchSettings({ minHz: v })} format={(v) => `${v} Hz`} />
         <SliderRow label="High cut" value={s.maxHz} min={4000} max={20000} step={500} onChange={(v) => actions.patchSettings({ maxHz: v })} format={(v) => `${(v / 1000).toFixed(1)} kHz`} />
         <ToggleRow label="Log frequency spacing" checked={s.logFreq} onChange={(v) => actions.patchSettings({ logFreq: v })} />
       </div>

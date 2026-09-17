@@ -205,7 +205,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   return {
     fftSize: Number(fft),
     smoothing: num(r.smoothing, 0, 0.97, d.smoothing),
-    minHz: num(r.minHz, 15, 500, d.minHz),
+    minHz: num(r.minHz, 20, 500, d.minHz),
     maxHz: num(r.maxHz, 4000, 20000, d.maxHz),
     logFreq: pickBool(r.logFreq, d.logFreq),
     barCount: Math.round(num(r.barCount, 16, 2048, d.barCount)),
