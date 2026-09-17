@@ -39,6 +39,7 @@ export class SpectrumViz implements Visualizer {
     // 0 = off, positive dB = gate bars below threshold
     const thresholdDb = s.spectrumThreshold;
     const thresholdNorm = thresholdDb > 0 ? Math.pow(10, -thresholdDb / 20) : 0;
+    const thresholdHeight = thresholdNorm * maxH; // Height of threshold line in pixels
 
     /* horizontal bars — rows grow from the left (or center when mirrored) */
     if (s.barStyle === "rows") {
@@ -47,6 +48,7 @@ export class SpectrumViz implements Visualizer {
       const gapY = Math.min(Math.max(0.5, (usableH / n) * 0.24), 2);
       const rh = Math.max(0.75, usableH / n - gapY);
       const maxW = usable;
+      const thresholdWidth = thresholdNorm * maxW; // Width of threshold line in pixels
       for (let i = 0; i < n; i++) {
         let v = f.bars[i];
         v = Math.min(1, v * boost);
@@ -55,8 +57,25 @@ export class SpectrumViz implements Visualizer {
         const bwid = Math.max(2, v * maxW);
         const y = padY + i * (rh + gapY);
         g.fillStyle = pal.color(i / (n - 1), 0.92);
-        if (mirror) g.fillRect(w / 2 - bwid / 2, y, bwid, rh);
-        else g.fillRect(padX, y, bwid, rh);
+        if (mirror) {
+          // For mirrored mode with threshold, draw from threshold line
+          if (thresholdNorm > 0 && v >= thresholdNorm) {
+            const startX = w / 2 - thresholdWidth / 2;
+            const endX = w / 2 - bwid / 2;
+            g.fillRect(endX, y, startX - endX, rh);
+            g.fillRect(w / 2 + thresholdWidth / 2, y, startX - endX, rh);
+          } else {
+            g.fillRect(w / 2 - bwid / 2, y, bwid, rh);
+          }
+        } else {
+          // For normal mode with threshold, draw from threshold line rightward
+          if (thresholdNorm > 0 && v >= thresholdNorm) {
+            const startX = padX + thresholdWidth;
+            g.fillRect(startX, y, bwid - thresholdWidth, rh);
+          } else {
+            g.fillRect(padX, y, bwid, rh);
+          }
+        }
         if (s.peaks) {
           const pw = Math.min(1, f.peaks[i] * boost) * maxW;
           g.fillStyle = "rgba(255,255,255,0.75)";
@@ -102,23 +121,54 @@ export class SpectrumViz implements Visualizer {
       if (!usePath2D) {
         g.fillStyle = grad;
         if (mirror) {
-          g.fillRect(x, baseY - bh / 2, bw, bh);
+          // For mirrored mode with threshold, draw from threshold line
+          if (thresholdNorm > 0 && v >= thresholdNorm) {
+            const startY = baseY - thresholdHeight / 2;
+            const endY = baseY - bh / 2;
+            g.fillRect(x, endY, bw, startY - endY);
+          } else {
+            g.fillRect(x, baseY - bh / 2, bw, bh);
+          }
         } else {
-          g.fillRect(x, baseY - bh, bw, bh);
+          // For normal mode with threshold, draw from threshold line upward
+          if (thresholdNorm > 0 && v >= thresholdNorm) {
+            const startY = baseY - thresholdHeight;
+            const endY = baseY - bh;
+            g.fillRect(x, endY, bw, startY - endY);
+          } else {
+            g.fillRect(x, baseY - bh, bw, bh);
+          }
         }
         continue;
       }
 
       // Low bar count: build Path2D for rounded corners
       if (mirror) {
-        const y = baseY - bh / 2;
+        // For mirrored mode with threshold, draw from threshold line
+        let y = baseY - bh / 2;
+        let h = bh;
+        if (thresholdNorm > 0 && v >= thresholdNorm) {
+          const startY = baseY - thresholdHeight / 2;
+          const endY = baseY - bh / 2;
+          y = endY;
+          h = startY - endY;
+        }
         const r = rounded ? Math.min(bw / 2, 4) : 0;
-        if (rounded) bars!.roundRect(x, y, bw, bh, r);
-        else bars!.rect(x, y, bw, bh);
+        if (rounded) bars!.roundRect(x, y, bw, h, r);
+        else bars!.rect(x, y, bw, h);
       } else {
-        const r = rounded ? Math.min(bw / 2, bh / 2, 5) : 0;
-        if (rounded) bars!.roundRect(x, baseY - bh, bw, bh, r);
-        else bars!.rect(x, baseY - bh, bw, bh);
+        // For normal mode with threshold, draw from threshold line upward
+        let y = baseY - bh;
+        let h = bh;
+        if (thresholdNorm > 0 && v >= thresholdNorm) {
+          const startY = baseY - thresholdHeight;
+          const endY = baseY - bh;
+          y = endY;
+          h = startY - endY;
+        }
+        const r = rounded ? Math.min(bw / 2, h / 2, 5) : 0;
+        if (rounded) bars!.roundRect(x, y, bw, h, r);
+        else bars!.rect(x, y, bw, h);
       }
     }
 
@@ -184,6 +234,22 @@ export class SpectrumViz implements Visualizer {
     g.globalAlpha = 0.35;
     g.fillStyle = pal.color(0.5);
     g.fillRect(padX, mirror ? baseY - 0.5 : baseY, usable, 1);
+    
+    // Draw threshold line if threshold is active
+    if (thresholdNorm > 0) {
+      g.globalAlpha = 0.5;
+      g.fillStyle = "rgba(255,255,255,0.6)";
+      if (mirror) {
+        // Draw threshold lines above and below center for mirrored mode
+        g.fillRect(padX, baseY - thresholdHeight / 2 - 0.5, usable, 1);
+        g.fillRect(padX, baseY + thresholdHeight / 2 - 0.5, usable, 1);
+      } else {
+        // Draw threshold line for normal mode
+        g.fillRect(padX, baseY - thresholdHeight - 0.5, usable, 1);
+      }
+      g.globalAlpha = 1;
+    }
+    
     g.globalAlpha = 1;
     void q;
   }
