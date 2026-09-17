@@ -92,8 +92,10 @@ export class AudioEngine {
   private levelS = 0;
   private peakHoldS = 0;
   private beatAvg = 0;
+  private beatAvgFast = 0;
   private lastBeat = -10;
   private beatPulseS = 0;
+  private prevBass = 0;
 
   tracks: Track[] = [];
   current = -1;
@@ -699,9 +701,22 @@ export class AudioEngine {
       f.peakHold = this.peakHoldS;
 
       const e = this.bassS;
+      // Fast average for baseline (adapts quickly to sustained bass)
+      this.beatAvgFast += (e - this.beatAvgFast) * (1 - Math.exp(-dt * 8));
+      // Slow average for overall level (adapts slowly)
       this.beatAvg += (e - this.beatAvg) * (1 - Math.exp(-dt * 1.35));
+      
+      // Onset detection: measure the rate of bass energy increase
+      const bassDelta = Math.max(0, e - this.prevBass);
+      this.prevBass = e;
+      
       f.beat = false;
-      if (t - this.lastBeat > 0.27 && e > 0.1 && e > this.beatAvg * 1.3 + 0.012) {
+      // Trigger beat if:
+      // 1. Refractory period passed (0.15s for faster music)
+      // 2. Bass energy above minimum threshold (0.05 for quieter tracks)
+      // 3. Bass is rising significantly (onset detection)
+      // 4. Current bass exceeds fast average by 15% (lower threshold)
+      if (t - this.lastBeat > 0.15 && e > 0.05 && bassDelta > 0.03 && e > this.beatAvgFast * 1.15) {
         f.beat = true;
         this.lastBeat = t;
         this.beatPulseS = 1;
