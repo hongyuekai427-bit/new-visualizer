@@ -34,6 +34,11 @@ export class SpectrumViz implements Visualizer {
     const baseY = mirror ? h * 0.5 : h * 0.92;
     const maxH = Math.max(40, mirror ? h * 0.5 - headroom : baseY - headroom);
     const boost = 1 + f.beatPulse * fx.pulse * 0.12;
+    
+    // Spectrum gate threshold: convert dB to normalized 0-1 range
+    // 0 = off, positive dB = gate bars below threshold
+    const thresholdDb = s.spectrumThreshold;
+    const thresholdNorm = thresholdDb > 0 ? Math.pow(10, -thresholdDb / 20) : 0;
 
     /* horizontal bars — rows grow from the left (or center when mirrored) */
     if (s.barStyle === "rows") {
@@ -45,6 +50,8 @@ export class SpectrumViz implements Visualizer {
       for (let i = 0; i < n; i++) {
         let v = f.bars[i];
         v = Math.min(1, v * boost);
+        // Spectrum gate: skip rows below threshold
+        if (thresholdNorm > 0 && v < thresholdNorm) continue;
         const bwid = Math.max(2, v * maxW);
         const y = padY + i * (rh + gapY);
         g.fillStyle = pal.color(i / (n - 1), 0.92);
@@ -77,6 +84,8 @@ export class SpectrumViz implements Visualizer {
     for (let i = 0; i < n; i++) {
       let v = f.bars[i];
       v = Math.min(1, v * boost);
+      // Spectrum gate: skip bars below threshold
+      if (thresholdNorm > 0 && v < thresholdNorm) continue;
       const bh = Math.max(dense ? 1 : 2, v * maxH);
       const x = padX + i * step;
 
@@ -131,6 +140,8 @@ export class SpectrumViz implements Visualizer {
       if (s.peaks && !dense) {
         g.fillStyle = "rgba(255,255,255,0.82)";
         for (let i = 0; i < n; i++) {
+          // Respect threshold: skip peaks for bars below threshold
+          if (thresholdNorm > 0 && f.bars[i] * boost < thresholdNorm) continue;
           const p = Math.min(1, f.peaks[i] * boost);
           const x = padX + i * step;
           if (mirror) {
@@ -146,6 +157,8 @@ export class SpectrumViz implements Visualizer {
       // Draw peaks for high bar count (direct rendering mode)
       g.fillStyle = "rgba(255,255,255,0.82)";
       for (let i = 0; i < n; i++) {
+        // Respect threshold: skip peaks for bars below threshold
+        if (thresholdNorm > 0 && f.bars[i] * boost < thresholdNorm) continue;
         const p = Math.min(1, f.peaks[i] * boost);
         const x = padX + i * step;
         if (mirror) {
@@ -159,6 +172,8 @@ export class SpectrumViz implements Visualizer {
     } else if (s.peaks && !dense) {
       g.fillStyle = "rgba(255,255,255,0.7)";
       for (let i = 0; i < n; i++) {
+        // Respect threshold: skip peaks for bars below threshold
+        if (thresholdNorm > 0 && f.bars[i] * boost < thresholdNorm) continue;
         const p = Math.min(1, f.peaks[i]);
         const x = padX + i * step;
         g.fillRect(x, baseY - p * maxH - 2, bw, 2);

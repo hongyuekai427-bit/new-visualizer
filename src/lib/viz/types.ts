@@ -42,6 +42,12 @@ export interface Settings {
   quality: QualityMode;
   /** Display brightness applied to the whole visualization surface (1 = neutral). */
   brightness: number;
+  /**
+   * Spectrum gate threshold in dB below peak. 0 = off (everything draws).
+   * Positive values gate bars whose normalized amplitude falls below
+   * 10^(-dB/20) — e.g. 20 dB only shows bars within 20 dB of peak.
+   */
+  spectrumThreshold: number;
 }
 
 export const FFT_SIZES = [1024, 2048, 4096, 8192] as const;
@@ -73,6 +79,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fx: { trails: 0.3, glow: 0.55, cycle: 0, pulse: 0.65, flash: 0.2, spin: 0.25, background: true },
   quality: "auto",
   brightness: 1,
+  spectrumThreshold: 0,
 };
 
 export interface PaletteDef {
@@ -220,6 +227,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     fx: sanitizeFx(fxRaw),
     quality: pickStr(r.quality, QUALITY_MODES, d.quality),
     brightness: num(r.brightness, 0.4, 1.6, d.brightness),
+    spectrumThreshold: num(r.spectrumThreshold, 0, 60, d.spectrumThreshold),
   };
 }
 
