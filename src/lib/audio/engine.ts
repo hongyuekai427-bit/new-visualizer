@@ -235,7 +235,7 @@ export class AudioEngine {
   }
 
   setBassSensitivity(db: number): void {
-    this.bassSensitivityDb = Math.max(-10, Math.min(10, db));
+    this.bassSensitivityDb = Math.max(-15, Math.min(15, db));
   }
 
   private computeBarRanges(): void {
