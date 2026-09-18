@@ -340,6 +340,7 @@ function StyleTab() {
         <SliderRow label="High cut" value={s.maxHz} min={4000} max={20000} step={500} onChange={(v) => actions.patchSettings({ maxHz: v })} format={(v) => `${(v / 1000).toFixed(1)} kHz`} />
         <ToggleRow label="Log frequency spacing" checked={s.logFreq} onChange={(v) => actions.patchSettings({ logFreq: v })} />
         <SliderRow label="Visualizer gain" value={s.visualizerGain} min={-10} max={10} step={0.5} onChange={(v) => actions.patchSettings({ visualizerGain: v })} format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`} />
+        <SliderRow label="Bass sensitivity" value={s.bassSensitivity} min={-10} max={10} step={0.5} onChange={(v) => actions.patchSettings({ bassSensitivity: v })} format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`} />
       </div>
 
       <SectionLabel>Effects</SectionLabel>

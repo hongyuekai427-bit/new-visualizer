@@ -75,6 +75,7 @@ export class AudioEngine {
   private fftSize = 2048;
   private smoothingUser = 0.8;
   private visualizerGainDb = 0;
+  private bassSensitivityDb = 0;
 
   private freq: Uint8Array<ArrayBuffer> = new Uint8Array(1024);
   private waveArr: Uint8Array<ArrayBuffer> = new Uint8Array(2048);
@@ -231,6 +232,10 @@ export class AudioEngine {
 
   setVisualizerGain(db: number): void {
     this.visualizerGainDb = Math.max(-10, Math.min(10, db));
+  }
+
+  setBassSensitivity(db: number): void {
+    this.bassSensitivityDb = Math.max(-10, Math.min(10, db));
   }
 
   private computeBarRanges(): void {
@@ -721,13 +726,20 @@ export class AudioEngine {
       const bassDelta = Math.max(0, e - this.prevBass);
       this.prevBass = e;
       
+      // Apply bass sensitivity: positive dB = more sensitive (lower thresholds)
+      // negative dB = less sensitive (higher thresholds)
+      const sensitivityMultiplier = Math.pow(10, -this.bassSensitivityDb / 20);
+      const minBassThreshold = 0.05 * sensitivityMultiplier;
+      const minBassDelta = 0.03 * sensitivityMultiplier;
+      const fastAvgMultiplier = 1.15 * sensitivityMultiplier;
+      
       f.beat = false;
       // Trigger beat if:
       // 1. Refractory period passed (0.15s for faster music)
-      // 2. Bass energy above minimum threshold (0.05 for quieter tracks)
-      // 3. Bass is rising significantly (onset detection)
-      // 4. Current bass exceeds fast average by 15% (lower threshold)
-      if (t - this.lastBeat > 0.15 && e > 0.05 && bassDelta > 0.03 && e > this.beatAvgFast * 1.15) {
+      // 2. Bass energy above minimum threshold (adjusted by sensitivity)
+      // 3. Bass is rising significantly (onset detection, adjusted by sensitivity)
+      // 4. Current bass exceeds fast average (adjusted by sensitivity)
+      if (t - this.lastBeat > 0.15 && e > minBassThreshold && bassDelta > minBassDelta && e > this.beatAvgFast * fastAvgMultiplier) {
         f.beat = true;
         this.lastBeat = t;
         this.beatPulseS = 1;

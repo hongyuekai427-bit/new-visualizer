@@ -103,6 +103,7 @@ export class Renderer {
     engine.configureAnalysis(settings.fftSize, settings.smoothing);
     engine.configureBars(settings.barCount, settings.logFreq, settings.minHz, settings.maxHz);
     engine.setVisualizerGain(settings.visualizerGain);
+    engine.setBassSensitivity(settings.bassSensitivity);
     this.applyBrightness();
 
     if (typeof ResizeObserver !== "undefined" && canvas.parentElement) {
@@ -151,6 +152,9 @@ export class Renderer {
     }
     if (s.visualizerGain !== prev.visualizerGain) {
       this.engine.setVisualizerGain(s.visualizerGain);
+    }
+    if (s.bassSensitivity !== prev.bassSensitivity) {
+      this.engine.setBassSensitivity(s.bassSensitivity);
     }
     this.viz.configure(s);
     if (s.brightness !== prev.brightness) this.applyBrightness();
