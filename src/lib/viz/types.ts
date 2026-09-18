@@ -53,6 +53,11 @@ export interface Settings {
    * Applied to visualization only, does not affect audio playback.
    */
   visualizerGain: number;
+  /**
+   * Bass sensitivity for beat detection in dB. 0 = neutral, positive = more sensitive,
+   * negative = less sensitive. Affects beat detection thresholds.
+   */
+  bassSensitivity: number;
 }
 
 export const FFT_SIZES = [1024, 2048, 4096, 8192] as const;
@@ -86,6 +91,7 @@ export const DEFAULT_SETTINGS: Settings = {
   brightness: 1,
   spectrumThreshold: 0,
   visualizerGain: 0,
+  bassSensitivity: 0,
 };
 
 export interface PaletteDef {
@@ -235,6 +241,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     brightness: num(r.brightness, 0.4, 1.6, d.brightness),
     spectrumThreshold: num(r.spectrumThreshold, 0, 60, d.spectrumThreshold),
     visualizerGain: num(r.visualizerGain, -10, 10, d.visualizerGain),
+    bassSensitivity: num(r.bassSensitivity, -10, 10, d.bassSensitivity),
   };
 }
 
