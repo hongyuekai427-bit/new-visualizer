@@ -241,7 +241,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     brightness: num(r.brightness, 0.4, 1.6, d.brightness),
     spectrumThreshold: num(r.spectrumThreshold, 0, 60, d.spectrumThreshold),
     visualizerGain: num(r.visualizerGain, -10, 10, d.visualizerGain),
-    bassSensitivity: num(r.bassSensitivity, -10, 10, d.bassSensitivity),
+    bassSensitivity: num(r.bassSensitivity, -15, 15, d.bassSensitivity),
   };
 }
 
