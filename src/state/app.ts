@@ -41,10 +41,10 @@ export interface AppState {
 }
 
 export const STATIONS = [
-  { name: "Groove Salad", url: "https://ice1.somafm.com/groovesalad-128-mp3" },
-  { name: "Drone Zone", url: "https://ice1.somafm.com/dronezone-128-mp3" },
-  { name: "Secret Agent", url: "https://ice1.somafm.com/secretagent-128-mp3" },
-  { name: "Lush", url: "https://ice1.somafm.com/lush-128-mp3" },
+  { name: "Groove Salad", url: "https://ice5.somafm.com/groovesalad-128-mp3" },
+  { name: "Drone Zone", url: "https://ice5.somafm.com/dronezone-128-mp3" },
+  { name: "Secret Agent", url: "https://ice5.somafm.com/secretagent-128-mp3" },
+  { name: "Lush", url: "https://ice5.somafm.com/lush-128-mp3" },
 ];
 
 const VIZ_IDS = ["spectrum", "radial", "tunnel", "particles", "scope", "spectrogram"] as const;
