@@ -405,8 +405,14 @@ export class AudioEngine {
     }
     const tr = this.tracks[index];
     this.current = index;
-    if (tr.kind === "stream") this.el.crossOrigin = "anonymous";
-    else this.el.removeAttribute("crossorigin");
+    // Only set crossOrigin if we need to analyze the stream
+    // Some streams don't support CORS and will fail to load
+    if (tr.kind === "stream") {
+      // Try without crossOrigin first for maximum compatibility
+      this.el.removeAttribute("crossorigin");
+    } else {
+      this.el.removeAttribute("crossorigin");
+    }
     this.el.src = tr.url;
     if (autoplay) void this.play();
     this.emit("change");
