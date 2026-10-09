@@ -405,8 +405,7 @@ export class AudioEngine {
     }
     const tr = this.tracks[index];
     this.current = index;
-    if (tr.kind === "stream") this.el.crossOrigin = "anonymous";
-    else this.el.removeAttribute("crossorigin");
+    this.el.removeAttribute("crossorigin");
     this.el.src = tr.url;
     if (autoplay) void this.play();
     this.emit("change");
